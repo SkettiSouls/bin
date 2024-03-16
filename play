@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Based CLI """Music Player""" (can also be used for videos)
 # Requires mpv and fzf.
