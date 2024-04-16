@@ -24,7 +24,9 @@ while read -r line; do
 
   # Require user confirmation.
   echo "Confirm? (y/n/a)"
-  if [ -z "$skip" ]; then # Prevents asking for confirmation after agreeing to all ('a').
+
+  # Prevent asking for confirmation after agreeing to all ('a').
+  if [ -z "$skip" ]; then
     read confirm < /dev/tty
   fi
 
