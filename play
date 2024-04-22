@@ -131,38 +131,14 @@ dirs_mode () {
     mpv "$playlist" $loop
   else
     echo "Error: File(s) not found. How did this even happen?"
+    rm "$playlist"
     exit 1
   fi
 
   rm "$playlist"
 }
 
-multi_select () {
-  if [ -n "$multiSelect" ]; then
-    # Create a temporary playlist file.
-    playlist=$(mktemp "$defaultDir"/.temp_playlist_XXXXXX.m3u)
-
-    # Echo selection to playlist.
-    fzf $multiSelect > "$playlist"
-
-    # Ensure playlist is non-empty.
-    if [ -s "$playlist" ]; then
-      mpv "$playlist" $loop
-    else
-      echo "Error: File(s) not found. How did this even happen?"
-      exit 1
-    fi
-    rm "$playlist"
-  else
-    if [ "$mode" == "fuzzy" ]; then
-      mpv "$(fzf)" $loop
-    else
-      fzf | while read -r line; do mpv "$line" $loop; done
-    fi
-  fi
-}
-
-format_name() {
+format_names() {
   # Create a temporary file with all file names.
   tmp=$(mktemp /tmp/temp_list_XXXXXX.txt)
   echo "$(find * -type f)" > "$tmp"
@@ -210,6 +186,32 @@ format_name() {
   rm "$tmp"
 }
 
+multi_select () {
+  if [ -n "$multiSelect" ]; then
+    # Create a temporary playlist file.
+    playlist=$(mktemp "$defaultDir"/.temp_playlist_XXXXXX.m3u)
+
+    # Echo selection to playlist.
+    fzf $multiSelect > "$playlist"
+
+    # Ensure playlist is non-empty.
+    if [ -s "$playlist" ]; then
+      mpv "$playlist" $loop
+    else
+      echo "Error: File(s) not found. How did this even happen?"
+      rm "$playlist"
+      exit 1
+    fi
+    rm "$playlist"
+  else
+    if [ "$mode" == "fuzzy" ]; then
+      mpv "$(fzf)" $loop
+    else
+      fzf | while read -r line; do mpv "$line" $loop; done
+    fi
+  fi
+}
+
 mode_select () {
   case $mode in
     create)
@@ -225,7 +227,7 @@ mode_select () {
       multi_select
       ;;
     format)
-      format_name
+      format_names
       ;;
   esac
 }
