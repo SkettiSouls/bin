@@ -61,31 +61,62 @@ shift $((OPTIND -1))
 
 create_playlist() {
   # Directory confirmation.
-  echo "Create a playlist in $defaultDir? (y/n)"
+  echo "Create a playlist in $defaultDir? (y/n/f)"
   read dirConfirm < /dev/tty
 
   # Parse confirmation/denial.
-  if [ "$dirConfirm" == "y" ]; then
-    # Grab current directory name.
-    dirName=${PWD##*/}
-    dirName=${result:-/}
+  case $dirConfirm in
+    y)
+      # Grab current directory name.
+      fileName=${PWD##*/}
+      fileName=${fileName:-/}
 
-    # Generate playlist name based on input or dir name.
-    # Removes '.m3u' if provided to prevent '.m3u.m3u'.
-    fileName=$(echo "$dirName" | sed -e 's/.m3u//g')
+      # Select play order with fzf.
+      selection="$(fzf -m)"
 
-    # Select play order with fzf.
-    echo "$(fzf -m)" > $fileName.m3u
+      if [ -n "$selection" ]; then
+        echo "$selection" > $fileName.m3u
 
-    # Print contents of playlist file for error checking.
-    cat $fileName.m3u;
-  elif [ "$dirConfirm" == "n" ]; then
-    echo "Nothing to do."
-    exit 1
-  else
-    echo "Error: Please confirm or deny changes."
-    create_playlist
-  fi
+        # Print contents of playlist file for error checking.
+        echo "Created playlist '$fileName.m3u' with contents:"
+        cat $fileName.m3u;
+      else
+        echo "Error: No selection made."
+        exit 1
+      fi
+      ;;
+    f)
+      # Fuzzy find to the desired directory to format.
+      dirName=$(find * -type d -print | fzf)
+      cd "$dirName"
+
+      # Grab current directory name.
+      fileName=${PWD##*/}
+      fileName=${fileName:-/}
+
+      # Select play order with fzf.
+      selection="$(fzf -m)"
+
+      if [ -n "$selection" ]; then
+        echo "$selection" > $fileName.m3u
+
+        # Print contents of playlist file for error checking.
+        echo "Created playlist '$fileName.m3u' with contents:"
+        cat $fileName.m3u;
+      else
+        echo "Error: No selection made."
+        exit 1
+      fi
+      ;;
+    n)
+      echo "Nothing to do; exiting."
+      exit 1
+      ;;
+    *)
+      echo "Error: Please confirm or deny changes."
+      create_playlist
+      ;;
+  esac
 }
 
 dirs_mode () {
