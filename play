@@ -5,13 +5,14 @@
 
 # TODO: Shuffle
 
+# Default var values
 mode="fuzzy"
 multiSelect=""
 loop=""
 playlistExtension="m3u"
 defaultDir=""
 
-show_help() {
+show_help() { # {{{
   echo -e "Usage: play [-h -d -l -m -p -pe ] [args] [/media/directory]\n"
   echo -e "Flags:"
   echo "  -h:     Display this message."
@@ -22,8 +23,9 @@ show_help() {
   echo "  -m:     Enables multiple selections using Tab."
   echo "  -p:     Searches by file extension."
   echo "  -e:     Specify what file extension to use. (Defaults to m3u)"
-}
+} # }}}
 
+# Flags {{{
 while getopts "hcdflmpe:" opt; do
   case ${opt} in
     h)
@@ -57,9 +59,9 @@ while getopts "hcdflmpe:" opt; do
       ;;
   esac
 done
-shift $((OPTIND -1))
+shift $((OPTIND -1)) # }}}
 
-create_playlist() {
+create_playlist() { # {{{
   # Grab current directory name.
   currentDir=${PWD##*/}
   currentDir=${currentDir:-/}
@@ -82,9 +84,9 @@ create_playlist() {
     echo "Error: No selection made."
     exit 1
   fi
-}
+} # }}}
 
-create_playlist_cli() {
+create_playlist_cli() { # {{{
   # Directory confirmation.
   echo "Create a playlist in $defaultDir? (y/n/f)"
   read dirConfirm < /dev/tty
@@ -110,9 +112,9 @@ create_playlist_cli() {
       create_playlist_cli
       ;;
   esac
-}
+} # }}}
 
-dirs_mode () {
+dirs_mode() { # {{{
   # Create a temporary playlist file.
   playlist=$(mktemp "$defaultDir"/.temp_playlist_XXXXXX.m3u)
 
@@ -129,9 +131,9 @@ dirs_mode () {
   fi
 
   rm "$playlist"
-}
+} # }}}
 
-format_names() {
+format_names() { # {{{
   # Create a temporary file with all file names.
   tmp=$(mktemp /tmp/temp_list_XXXXXX.txt)
   echo "$(find * -type f)" > "$tmp"
@@ -147,6 +149,7 @@ format_names() {
     pass5=${pass4//[' ']/_} # Replace any spaces with underscores.
     pass6=$(echo "${pass5,,}") # Replace all caps with lowercase characters.
 
+    # Confirmation {{{
     # TODO: Figure out how to loop over pass and iterate instead of adding a new echo line
     # Display each stage of the file name for confirmation.
     echo -e "Original:\n$origin\n"
@@ -158,7 +161,7 @@ format_names() {
     echo -e "6th pass:\n$pass6\n"
 
     # Require user confirmation.
-    echo "Confirm? (y/n/a)"
+    echo "Confirm? (y/n/a)" # }}}
 
     # Prevent asking for confirmation after agreeing to all ('a').
     if [ -z "$skip" ]; then
@@ -184,9 +187,9 @@ format_names() {
     fi
   done < "$tmp"
   rm "$tmp"
-}
+} # }}}
 
-multi_select () {
+multi_select () { # {{{
   if [ -n "$multiSelect" ]; then
     # Create a temporary playlist file.
     playlist=$(mktemp "$defaultDir"/.temp_playlist_XXXXXX.m3u)
@@ -210,9 +213,9 @@ multi_select () {
       fzf | while read -r line; do mpv "$line" $loop; done
     fi
   fi
-}
+} # }}}
 
-mode_select () {
+mode_select () { # {{{
   case $mode in
     create)
       create_playlist_cli
@@ -230,7 +233,7 @@ mode_select () {
       format_names
       ;;
   esac
-}
+} # }}}
 
 if [ -n "$1" ]; then # Checks for args.
   if [ -d "$1" ]; then # Checks if the arg is an existing directory.
