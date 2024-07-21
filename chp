@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+if [ -n "$1" ]; then
+  headphones="$1"
+
+  info=`bluetoothctl info "$headphones"`
+  rawName=$(echo "$info" | grep "Name:")
+  strippedName="${rawName#*:}" # Remove 'Name:'
+  name="${strippedName#*' '}" # Remove leading whitespace
+
+  if echo "$info" | grep -q "Device $headphones not available"; then
+    echo "Device '$headphones' unavailable, has it been discovered?"
+    exit 1
+  elif echo "$info" | grep -q "Paired: no"; then
+    echo "Pairing device '$name'"
+    bluetoothctl pair "$headphones"
+    bluetoothctl trust "$headphones"
+    bluetoothctl connect "$headphones"
+  elif echo "$info" | grep -q "Connected: no"; then
+    echo "Connecting to device '$name'"
+    bluetoothctl connect "$headphones"
+  else
+    echo "Headphones already connected, continuing..."
+  fi
+else
+  echo "No MAC address provided."
+  exit 1
+fi
