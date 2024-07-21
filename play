@@ -60,6 +60,31 @@ done
 shift $((OPTIND -1))
 
 create_playlist() {
+  # Grab current directory name.
+  currentDir=${PWD##*/}
+  currentDir=${currentDir:-/}
+
+  # Select play order with fzf.
+  selection="$(fzf -m)"
+
+  if [ -n "$selection" ]; then
+    pass1="${currentDir#*-}" # Remove anything before a hyphon.
+    pass2="${pass1#*' '}" # Remove leading whitespace
+    pass3="${pass2//[' ']/_}" # Replace any spaces with underscores.
+    fileName=$(echo "${pass3,,}") # Replace all caps with lowercase characters.
+
+    echo "$selection" > "$fileName.m3u"
+
+    # Print contents of playlist file for error checking.
+    echo "Created playlist '$fileName.m3u' with contents:"
+    cat "$fileName.m3u";
+  else
+    echo "Error: No selection made."
+    exit 1
+  fi
+}
+
+create_playlist_cli() {
   # Directory confirmation.
   echo "Create a playlist in $defaultDir? (y/n/f)"
   read dirConfirm < /dev/tty
@@ -67,46 +92,14 @@ create_playlist() {
   # Parse confirmation/denial.
   case $dirConfirm in
     y)
-      # Grab current directory name.
-      fileName=${PWD##*/}
-      fileName=${fileName:-/}
-
-      # Select play order with fzf.
-      selection="$(fzf -m)"
-
-      if [ -n "$selection" ]; then
-        echo "$selection" > $fileName.m3u
-
-        # Print contents of playlist file for error checking.
-        echo "Created playlist '$fileName.m3u' with contents:"
-        cat $fileName.m3u;
-      else
-        echo "Error: No selection made."
-        exit 1
-      fi
+      create_playlist
       ;;
     f)
       # Fuzzy find to the desired directory to format.
       dirName=$(find * -type d -print | fzf)
       cd "$dirName"
 
-      # Grab current directory name.
-      fileName=${PWD##*/}
-      fileName=${fileName:-/}
-
-      # Select play order with fzf.
-      selection="$(fzf -m)"
-
-      if [ -n "$selection" ]; then
-        echo "$selection" > $fileName.m3u
-
-        # Print contents of playlist file for error checking.
-        echo "Created playlist '$fileName.m3u' with contents:"
-        cat $fileName.m3u;
-      else
-        echo "Error: No selection made."
-        exit 1
-      fi
+      create_playlist
       ;;
     n)
       echo "Nothing to do; exiting."
@@ -114,7 +107,7 @@ create_playlist() {
       ;;
     *)
       echo "Error: Please confirm or deny changes."
-      create_playlist
+      create_playlist_cli
       ;;
   esac
 }
@@ -222,7 +215,7 @@ multi_select () {
 mode_select () {
   case $mode in
     create)
-      create_playlist
+      create_playlist_cli
       ;;
     dirs)
       find * -type d -print | dirs_mode
