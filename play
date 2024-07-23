@@ -71,7 +71,11 @@ create_playlist() { # {{{
 
   if [ -n "$selection" ]; then
     pass1="${currentDir#*-}" # Remove anything before a hyphon.
-    pass2="${pass1#*' '}" # Remove leading whitespace
+    if [ "$pass1" == "$currentDir" ];
+      then pass2="$pass1" # Prevent removing the first word of currentDir when pass1 does nothing
+    else
+      pass2="${pass1#*' '}" # Remove leading whitespace after pass1
+    fi
     pass3="${pass2//[' ']/_}" # Replace any spaces with underscores.
     fileName=$(echo "${pass3,,}") # Replace all caps with lowercase characters.
 
