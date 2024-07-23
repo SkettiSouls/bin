@@ -19,8 +19,6 @@
       mkPackages [
         "chp"
         "eat"
-        "m3u"
-        "eat"
         "play"
       ]
     );

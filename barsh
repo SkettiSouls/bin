@@ -1,9 +1,0 @@
-#!/bin/sh -e
-
-trap 'printf \\033[?25h' EXIT INT
-
-printf '\033[?25l'
-
-while printf '\033[Khello world\r'; do
-    sleep 3
-done
