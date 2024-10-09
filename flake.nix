@@ -11,16 +11,24 @@
   {
     packages = eachSystem (system:
     let
-      inherit (pkgs) callPackage;
-
       pkgs = import nixpkgs { inherit system; };
-      mkPackages = list: nixpkgs.lib.genAttrs list (pname: callPackage ./nix/${pname}.nix {});
+
+      mkScript = name: deps:
+        pkgs.stdenvNoCC.mkDerivation {
+          name = name;
+          nobuild = true;
+          src = ./bash;
+          nativeBuildInputs = deps;
+          installPhase = ''
+            mkdir -p $out/bin
+            cp $src/${name} $out/bin/${name}
+          '';
+        };
     in
-      mkPackages [
-        "chp"
-        "eat"
-        "play"
-      ]
-    );
+    {
+      chp = mkScript "chp" [];
+      eat = mkScript "eat" [];
+      play = mkScript "play" [ pkgs.mpv pkgs.fzf ];
+    });
   };
 }
