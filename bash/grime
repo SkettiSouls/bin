@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+
+# Grime: River screenshot utility (WIP)
+#
+# Dependencies:
+#   `grim`: screenshot tool
+#   `slurp`: area selector
+#   `notify-send`: desktop notifications
+#   `lswt`: get window properties
+#   `jq`: json utility to parse lswt
+#
+# Heavily based on grimshot from sway
+# https://github.com/OctopusET/sway-contrib/blob/master/grimshot/grimshot
+
+print_help() {
+  echo "Usage:"
+  echo "  grime [--notify] [--cursor] [--wait N] (copy|save) [active|screen|output|area] [FILE]"
+  echo ""
+  echo "Commands:"
+  echo "  copy: Copy the screenshot to clipboard."
+  echo "  save: Write the screenshot to disk."
+  echo "  copysave: Write to disk and copy to clipboard."
+  echo ""
+  echo "Modes:"
+  echo "  screen: Select all visible outputs."
+  echo "  output: Select output to screenshot."
+  echo "  area: Select a region."
+  exit
+}
+
+get_screenshot_dir() {
+  test -f "$XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs" &&
+    . "${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs"
+
+  echo "${XDG_SCREENSHOTS_DIR:-${XDG_PICTURES_DIR:-$HOME}}"
+}
+
+NOTIFY=false
+CURSOR=
+WAIT=false
+
+while [ $# -gt 0 ]; do
+  args="$1"
+  case "$args" in
+    -h | --help)
+      print_help
+      ;;
+
+    -n | --notify)
+      NOTIFY=true
+      shift
+      ;;
+    
+    -c | --cursor)
+      SHOW_CURSOR=true
+      shift
+      ;;
+
+    -w | --wait)
+      shift
+      WAIT="$1"
+      if echo "$WAIT" | grep "[^0-9]" -q; then
+        echo "Invalid wait time: '$WAIT'" >&2
+        exit 3
+      fi
+      shift
+      ;;
+
+    *)
+      break
+      ;;
+  esac
+done
+
+ACTION=${1:-usage}
+SUBJECT=${2:-screen}
+FILE=${3:-${get_screenshot_dir}/$(date -Ins).png}
+
+notify() {
+  notify-send -t 3000 -a grime "$@"
+}
+
+notify_ok() {
+  [ "$NOTIFY" = false ] && return
+
+  notify "$@"
+}
+
+notify_error() {
+  if [ "$NOTIFY" = true ]; then
+    TITLE=${2:-"Screenshot"}
+    MESSAGE=${1:-"Error taking screenshot with grim"}
+    notify -u critical "$TITLE" "$MESSAGE"
+  else
+    echo "$1"
+  fi
+}
+
+die() {
+  MSG=${1:-Bye}
+  notify_error "Error: $MSG"
+  exit 2
+}
+
+check() {
+  COMMAND=$1
+  if command -v "$COMMAND" >/dev/null 2>&1; then
+    RESULT="OK"
+  else
+    RESULT="NOT FOUND"
+  fi
+  echo "  $COMMAND: $RESULT"
+}
+
+wait() {
+  if [ "$WAIT" != false ]; then
+    sleep "$WAIT"
+  fi
+}
+
+take_screenshot() {
+  FILE=$1
+  GEOM=$2
+  OUTPUT=$3
+
+  if [ -n "$OUTPUT" ]; then
+    grim ${CURSOR:+-c} "$FILE" || die "Unable to invoke grim"
+  elif [ -z "$GEOM" ]; then
+    grim ${CURSOR:+-c} "$FILE" || die "Unable to invoke grim"
+  else
+    grim ${CURSOR:+-c} -g "$GEOM" "$FILE" || die "Unable to invoke grim"
+  fi
+}
+
+case "$SUBJECT" in 
+  active)
+    wait
+    echo "ACTIVE"
+    FOCUSED=$(lswt -j | jq -r 'recurse(.toplevels[]?) | select(.activated)')
+    # TODO: Figure out how to get window bounds
+    GEOM=
+    APP_ID=$(echo "$FOCUSED" | jq -r '."app-id"')
+    WHAT="$APP_ID window"
+    exit
+    ;;
+
+  screen)
+    wait
+    GEOM=""
+    WHAT="Screen"
+    ;;
+
+  output)
+    wait
+    OUTPUT=$(slurp -f %o -or)
+    GEOM=""
+    WHAT="$OUTPUT"
+    echo "ACTIVE"
+    ;;
+
+  area)
+    # TODO: Freeze
+    GEOM=$(slurp -d)
+    ;;
+
+  *)
+    die "Unknown screenshot type" "$SUBJECT"
+    ;;
+esac
+
+case "$ACTION" in
+  check)
+    check grim
+    check slurp
+    check notify-send
+    check lswt
+    exit
+    ;;
+  copy)
+    take_screenshot - "$GEOM" "$OUTPUT" | wl-copy --type image/png || die "Clipboard error"
+    notify_ok "$WHAT copied to buffer"
+    ;;
+
+  save)
+    if take_screenshot "$FILE" "$GEOM" "$OUTPUT"; then
+      TITLE="Screenshot of $SUBJECT"
+      MESSAGE=$(basename "$FILE")
+      notify_ok "$TITLE" "$MESSAGE" -i "$FILE"
+      echo "$FILE"
+    else
+      notify_error "Error taking screenshot with grim"
+    fi
+    ;;
+
+  copysave)
+    take_screenshot - "$GEOM" "$OUTPUT" | tee "$FILE" | wl-copy --type image/png || die "Clipboard error"
+    notify_ok "$WHAT copied to buffer and saved to $FILE" -i "$FILE"
+    echo "$FILE"
+    ;;
+
+  *)
+    print_help
+    ;;
+esac
