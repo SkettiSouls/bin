@@ -28,7 +28,7 @@
     {
       chp = mkScript "chp" [];
       eat = mkScript "eat" [];
-      grime = with pkgs; mkScript "grime" [ libnotify grim slurp lswt jq ];
+      grime = with pkgs; mkScript "grime" [ libnotify grim slurp ];
       play = mkScript "play" [ pkgs.mpv pkgs.fzf ];
     });
   };
