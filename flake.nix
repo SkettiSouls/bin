@@ -11,30 +11,27 @@
   {
     packages = eachSystem (system:
     let
-      inherit (nixpkgs.lib) mkIf escapeShellArgs;
       pkgs = import nixpkgs { inherit system; };
 
+      scripts = with builtins; mapAttrs (script: _: pkgs.stdenvNoCC.mkDerivation {
+        name = script;
+        nobuild = true;
+        src = ./bash;
+        installPhase = ''
+          mkdir -p $out/bin
+          cp $src/${script} $out/bin/${script}
+        '';
+      }) (readDir ./bash);
+
       mkScript = name: deps:
-        pkgs.stdenvNoCC.mkDerivation {
+        pkgs.writeShellApplication {
           name = name;
-          nobuild = true;
-          src = ./bash;
-          nativeBuildInputs = if deps != [] then [ pkgs.makeWrapper ] else [];
-          installPhase = let
-            depPaths = map (p: ["--prefix" "PATH" ":" "${p}/bin"]) deps;
-          in ''
-            mkdir -p $out/bin
-            cp $src/${name} $out/bin/${name}
-          '' + (if deps != [] then ''
-            for file in $out/bin/*; do
-              wrapProgram \
-                $file \
-                ${escapeShellArgs (nixpkgs.lib.flatten depPaths)}
-            done
-          '' else "");
+          runtimeInputs = deps;
+          text = ''
+            ${scripts.${name}}/bin/${name} "$@"
+          '';
         };
-    in
-    {
+    in {
       chp = mkScript "chp" [ pkgs.bluez ];
       eat = mkScript "eat" [];
       grime = with pkgs; mkScript "grime" [ libnotify grim slurp ];
