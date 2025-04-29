@@ -1,5 +1,5 @@
 #!/bin/sh
-
+# Stolen from dylanaraps @ https://github.com/dylanaraps/bin/blob/master/eat
 # kinda works? blame dylan lmao
 
 # Run a program from a terminal and destroy
