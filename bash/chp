@@ -1,27 +1,66 @@
-#!/usr/bin/env bash
-if [ -n "$1" ]; then
-  headphones="$1"
+#!/usr/bin/env expect
+set mac [lindex $argv 0]
+set prompt "\\\[.*\\\]>"
+set timeout 5
+log_user 0
 
-  info=`bluetoothctl info "$headphones"`
-  rawName=$(echo "$info" | grep "Name:")
-  strippedName="${rawName#*:}" # Remove 'Name:'
-  name="${strippedName#*' '}" # Remove leading whitespace
+proc pair {address prompt} {
+    expect *
+    send_user "Pairing device '$address'"
+    send "pair $address\r"
 
-  if echo "$info" | grep -q "Device $headphones not available"; then
-    echo "Device '$headphones' unavailable, has it been discovered?"
-    exit 1
-  elif echo "$info" | grep -q "Paired: no"; then
-    echo "Pairing device '$name'"
-    bluetoothctl pair "$headphones"
-    bluetoothctl trust "$headphones"
-    bluetoothctl connect "$headphones"
-  elif echo "$info" | grep -q "Connected: no"; then
-    echo "Connecting to device '$name'"
-    bluetoothctl connect "$headphones"
-  else
-    echo "Headphones already connected, continuing..."
-  fi
-else
-  echo "No MAC address provided."
-  exit 1
-fi
+    expect {
+        -re "Pairing successful" {
+            send "trust $address\r"
+
+            expect -re "$address trust succeeded"
+            send_user "Connecting to device '$address'"
+            send "connect $address\r"
+
+            expect -re $prompt { return true }
+        }
+        -re "Failed to pair" { return false }
+    }
+}
+
+# Taken from https://github.com/bluez/bluez/issues/692#issuecomment-2813186567
+proc wait_for_device {address} {
+    send_user "\nWaiting for device\n"
+    expect *
+    send "devices\r"
+    expect {
+        timeout { wait_for_device $address }
+        -re "Device $address"
+    }
+}
+
+spawn bluetoothctl
+
+expect *
+send "info $mac\r"
+
+expect {
+    -re "Device $mac not available" {
+        send_user "Device '$mac' unavailable, please make sure it's discoverable"
+
+        send "scan on\r"
+        wait_for_device $mac
+
+        expect {
+            timeout { pair $mac $prompt }
+            -re "Pairing successful"
+        }
+    }
+    -re "Connected: yes" {
+        send_user "Headphones already connected, exiting..."
+        send "quit\r"
+    }
+    -re "Paired: no" { pair $mac $prompt }
+    -re "Connected: no" {
+        send_user "Connecting to device '$mac'"
+        send "connect $mac\r"
+
+        expect -re $prompt
+        send "quit\r"
+    }
+}
